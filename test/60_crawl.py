@@ -260,13 +260,13 @@ def NameNode(_port = 0, name_list=[], metric_list=[]):
                         "tags": ""
                         })
 
-
 NameNode(port_list[0], NameNode_name_list, NameNode_metric_list)
 NameNode(port_list[1], DataNode_name_list, DataNode_metric_list)
 NameNode(port_list[2], HMaster_name_list, HMaster_metric_list)
 NameNode(port_list[3], HRegionServer_name_list, HRegionServer_metric_list)
 NameNode(port_list[4], NodeManager_name_list, NodeManager_metric_list)
 NameNode(port_list[5], ResourceManager_name_list, ResourceManager_metric_list)
-
-result = requests.post("http://127.0.0.1:1988/v1/push", data = json.dumps(payload_list))
-print result.text
+  #  result = requests.post("http://127.0.0.1:1988/v1/push", data = json.dumps(payload_list))
+  #  print result
+print payload_list
+#payload_list = []
