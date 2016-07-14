@@ -1,5 +1,5 @@
 # encoding: utf-8
-# author Froid
+# author Froid_
 import urllib2
 import json
 import socket
