@@ -1,15 +1,15 @@
+#!/bin/env python
 # encoding: utf-8
-# author Froid_
+
 import urllib2
 import json
 import socket
 import time
-import requests
 
 
-root_url = "http://192.168.55.10"
+root_url = "http://192.168.50.2"
 
-#节点、端口
+# 节点、端口
 node_list = ['NameNode',
              'DataNode',
              'HMaster',
@@ -19,25 +19,24 @@ node_list = ['NameNode',
 
 port_list = ('50070', '50075', '60010', '60030', '8042', '8088')
 
-#JMX查询
+# JMX查询
 NameNode_name_list = ['java.lang:type=Memory',
                       'Hadoop:service=NameNode,name=RpcActivityForPort8020',
                       #'Hadoop:service=NameNode,name=NameNodeActivity',
-                      #'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
+                      # 'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
                       'Hadoop:service=NameNode,name=FSNamesystemState',
-                      'java.lang:type=OperatingSystem'
-                      ]
+                      'java.lang:type=OperatingSystem']
 
 DataNode_name_list = ['java.lang:type=Memory',
                       'Hadoop:service=DataNode,name=FSDatasetState-null',
                       'Hadoop:service=DataNode,name=RpcActivityForPort8010',
-                      #'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
+                      # 'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
                       'java.lang:type=OperatingSystem',
-                      'Hadoop:service=DataNode,name=DataNodeActivity-NEOInciteDataNode-1-50010'
+                      'Hadoop:service=DataNode,name=DataNodeActivity-test-1-50010'
                       ]
 
 HMaster_name_list = ['java.lang:type=Memory',
-                     #'java.lang:type=GarbageCollector,name=ConcurrentMarkSweep',
+                     # 'java.lang:type=GarbageCollector,name=ConcurrentMarkSweep',
                      'java.lang:type=OperatingSystem',
                      'Hadoop:service=HBase,name=IPC,sub=IPC'
                      ]
@@ -220,53 +219,57 @@ push_data_dic = {
 """
 
 payload_list = []
-def NameNode(_port = 0, name_list=[], metric_list=[]):
+def NameNode(_node_name,_port = 0, name_list=[], metric_list=[]):
     port = _port
-    #global payload_list
+    node_name = _node_name
     for i in range(len(name_list)):
         for j in range(len(metric_list[i])):
-            url = root_url + ':' + port + '/jmx?get=' + name_list[i] + '::' + metric_list[i][j]
-            #print url
-            data = json.loads(urllib2.urlopen(url).read())['beans'][0][metric_list[i][j]]
-            if metric_list[i][j] == 'HeapMemoryUsage' or metric_list[i][j] == 'NonHeapMemoryUsage':
-                payload_list.append({
-                    "endpoint": socket.gethostname(),
-                    "metric": metric_list[i][j]+'.max',
-                    "timestamp": int(time.time()),
-                    "step": 60,
-                    "value": data['max'],
-                    "counterType": "GAUGE",
-                    "tags": ""
-                })
-                payload_list.append({
-                    "endpoint": socket.gethostname(),
-                    "metric": metric_list[i][j]+'.used',
-                    "timestamp": int(time.time()),
-                    "step": 60,
-                    "value": data['used'],
-                    "counterType": "GAUGE",
-                    "tags": ""
-                })
+            try:
+                url = root_url + ':' + port + '/jmx?get=' + name_list[i] + '::' + metric_list[i][j]
+            except urllib2.URLError:
+                print "Error : wrong url"
             else:
-                #push_data_dic['value'] = data
-                #push_data_dic['metric'] = metric_list[i][j]
-                payload_list.append({
-                        "endpoint": socket.gethostname(),
-                        "metric": metric_list[i][j],
-                        "timestamp": int(time.time()),
-                        "step": 60,
-                        "value":data,
-                        "counterType": "GAUGE",
-                        "tags": ""
+                try:
+                    data = json.loads(urllib2.urlopen(url).read())['beans'][0][metric_list[i][j]]
+                except IndexError:
+                    continue
+                else:
+                    if metric_list[i][j] == 'HeapMemoryUsage' or metric_list[i][j] == 'NonHeapMemoryUsage':
+                        payload_list.append({
+                            "endpoint": socket.gethostname(),
+                            "metric": metric_list[i][j]+'.max',
+                            "timestamp": int(time.time()),
+                            "step": 60,
+                            "value": data['max'],
+                            "counterType": "GAUGE",
+                            "tags": "service="+node_name
                         })
+                        payload_list.append({
+                            "endpoint": socket.gethostname(),
+                            "metric": metric_list[i][j]+'.used',
+                            "timestamp": int(time.time()),
+                            "step": 60,
+                            "value": data['used'],
+                            "counterType": "GAUGE",
+                            "tags": "service="+node_name
+                        })
+                    else:
+                        payload_list.append({
+                                "endpoint": socket.gethostname(),
+                                "metric": metric_list[i][j],
+                                "timestamp": int(time.time()),
+                                "step": 60,
+                                "value":data,
+                                "counterType": "GAUGE",
+                                "tags": "service="+node_name
+                                })
 
-NameNode(port_list[0], NameNode_name_list, NameNode_metric_list)
-NameNode(port_list[1], DataNode_name_list, DataNode_metric_list)
-NameNode(port_list[2], HMaster_name_list, HMaster_metric_list)
-NameNode(port_list[3], HRegionServer_name_list, HRegionServer_metric_list)
-NameNode(port_list[4], NodeManager_name_list, NodeManager_metric_list)
-NameNode(port_list[5], ResourceManager_name_list, ResourceManager_metric_list)
-  #  result = requests.post("http://127.0.0.1:1988/v1/push", data = json.dumps(payload_list))
-  #  print result
-print payload_list
-#payload_list = []
+
+
+NameNode(node_list[0], port_list[0], NameNode_name_list, NameNode_metric_list)
+NameNode(node_list[1], port_list[1], DataNode_name_list, DataNode_metric_list)
+NameNode(node_list[2], port_list[2], HMaster_name_list, HMaster_metric_list)
+NameNode(node_list[3], port_list[3], HRegionServer_name_list, HRegionServer_metric_list)
+NameNode(node_list[4], port_list[4], NodeManager_name_list, NodeManager_metric_list)
+NameNode(node_list[5], port_list[5], ResourceManager_name_list, ResourceManager_metric_list)
+print json.dumps(payload_list)
