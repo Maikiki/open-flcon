@@ -7,8 +7,8 @@ import socket
 import time
 
 
-root_url = "http://192.168.50.2"
-
+root_url = "http://"+socket.gethostbyname(socket.gethostname())
+#root_url = "http://192.168.55.10"
 # 节点、端口
 node_list = ['NameNode',
              'DataNode',
@@ -19,46 +19,55 @@ node_list = ['NameNode',
 
 port_list = ('50070', '50075', '60010', '60030', '8042', '8088')
 
+
+
+fsdataset = ""
+temp = root_url + ':' + '50075' + '/jmx?' + 'qry=Hadoop:*'
+try:
+    temp_dataset = json.loads(urllib2.urlopen(temp).read())['beans']
+except urllib2.URLError:
+    pass
+else:
+    for i in range(len(temp_dataset)):
+        if 'FSDatasetState' in temp_dataset[i]['name'] :
+            fsdataset = temp_dataset[i]['name']
+
+#print fsdataset
+
+
 # JMX查询
 NameNode_name_list = ['java.lang:type=Memory',
                       'Hadoop:service=NameNode,name=RpcActivityForPort8020',
-                      #'Hadoop:service=NameNode,name=NameNodeActivity',
-                      # 'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
                       'Hadoop:service=NameNode,name=FSNamesystemState',
                       'java.lang:type=OperatingSystem']
 
 DataNode_name_list = ['java.lang:type=Memory',
-                      'Hadoop:service=DataNode,name=FSDatasetState-null',
+                       fsdataset,
                       'Hadoop:service=DataNode,name=RpcActivityForPort8010',
-                      # 'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
                       'java.lang:type=OperatingSystem',
-                      'Hadoop:service=DataNode,name=DataNodeActivity-test-1-50010'
+                      'Hadoop:service=DataNode,name=DataNodeActivity-' + socket.gethostname() + '-50010'
                       ]
-
+#print DataNode_name_list[1]
 HMaster_name_list = ['java.lang:type=Memory',
-                     # 'java.lang:type=GarbageCollector,name=ConcurrentMarkSweep',
                      'java.lang:type=OperatingSystem',
                      'Hadoop:service=HBase,name=IPC,sub=IPC'
                      ]
 
 HRegionServer_name_list = ['java.lang:type=Memory',
-                        #   'java.lang:type=GarbageCollector,name=ConcurrentMarkSweep',
                            'java.lang:type=OperatingSystem',
                            'Hadoop:service=HBase,name=RegionServer,sub=Server',
                            'Hadoop:service=HBase,name=IPC,sub=IPC'
                            ]
 
 NodeManager_name_list = ['java.lang:type=Memory',
-                         #'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
                          'java.lang:type=OperatingSystem',
                          'Hadoop:service=NodeManager,name=RpcActivityForPort45454',
                          'Hadoop:service=NodeManager,name=NodeManagerMetrics',
                          ]
 
 ResourceManager_name_list = ['java.lang:type=Memory',
-                             #'java.lang:type=GarbageCollector,name=PS%20MarkSweep',
                              'java.lang:type=OperatingSystem',
-                             'Hadoop:service=ResourceManager,name=RpcActivityForPort8032',
+                             'Hadoop:service=ResourceManager,name=RpcActivityForPort8025',
                              'Hadoop:service=ResourceManager,name=ClusterMetrics',
                              'Hadoop:service=ResourceManager,name=QueueMetrics,q0=root'
                              ]
@@ -73,8 +82,6 @@ NameNode_metric_list = [['HeapMemoryUsage',
                          'RpcQueueTimeAvgTime',
                          'NumOpenConnections'
                          ],
-                        #['LastGcInfo'
-                         #],
                         ['CapacityTotal',
                          'CapacityUsed',
                          'CapacityRemaining',
@@ -99,8 +106,6 @@ DataNode_metric_list = [['HeapMemoryUsage',
                          'RpcQueueTimeAvgTime',
                          'NumOpenConnections'
                          ],
-                        #['LastGcInfo'
-                         #],
                         ['MaxFileDescriptorCount',
                          'OpenFileDescriptorCount'
                          ],
@@ -111,8 +116,6 @@ DataNode_metric_list = [['HeapMemoryUsage',
 HMaster_metric_list = [['HeapMemoryUsage',
                         'NonHeapMemoryUsage'
                         ],
-                       #['LastGcInfo'
-                        #],
                        ['MaxFileDescriptorCount',
                         'OpenFileDescriptorCount'
                         ],
@@ -124,8 +127,6 @@ HMaster_metric_list = [['HeapMemoryUsage',
 HRegionServer_metric_list = [['HeapMemoryUsage',
                               'NonHeapMemoryUsage'
                               ],
-                             #['LastGcInfo'
-                              #],
                              ['MaxFileDescriptorCount',
                               'OpenFileDescriptorCount'
                               ],
@@ -142,9 +143,9 @@ HRegionServer_metric_list = [['HeapMemoryUsage',
                               'blockCountHitPercent',
                               'Append_99th_percentile',
                               'Mutate_99th_percentile',
-                              'FlushTime_99th_percentile',
+                             # 'FlushTime_99th_percentile',
                               'Get_99th_percentile',
-                              'SplitTime_99th_percentile'
+                             # 'SplitTime_99th_percentile'
                               ],
                              ['QueueCallTime_99th_percentile',
                               'ProcessCallTime_99th_percentile'
@@ -224,19 +225,19 @@ def NameNode(_node_name,_port = 0, name_list=[], metric_list=[]):
     node_name = _node_name
     for i in range(len(name_list)):
         for j in range(len(metric_list[i])):
+            url = root_url + ':' + port + '/jmx?get=' + name_list[i] + '::' + metric_list[i][j]
             try:
-                url = root_url + ':' + port + '/jmx?get=' + name_list[i] + '::' + metric_list[i][j]
+                data = json.loads(urllib2.urlopen(url).read())['beans'][0][metric_list[i][j]]
             except urllib2.URLError:
-                print "Error : wrong url"
+                continue
+            except IndexError:
+                pass
+            except KeyError:
+                pass
             else:
-                try:
-                    data = json.loads(urllib2.urlopen(url).read())['beans'][0][metric_list[i][j]]
-                except IndexError:
-                    continue
-                else:
-                    if metric_list[i][j] == 'HeapMemoryUsage' or metric_list[i][j] == 'NonHeapMemoryUsage':
-                        payload_list.append({
-                            "endpoint": socket.gethostname(),
+                if metric_list[i][j] == 'HeapMemoryUsage' or metric_list[i][j] == 'NonHeapMemoryUsage':
+                    payload_list.append({
+                            "endpoint": socket.gethostbyname(socket.gethostname()),
                             "metric": metric_list[i][j]+'.max',
                             "timestamp": int(time.time()),
                             "step": 60,
@@ -244,8 +245,8 @@ def NameNode(_node_name,_port = 0, name_list=[], metric_list=[]):
                             "counterType": "GAUGE",
                             "tags": "service="+node_name
                         })
-                        payload_list.append({
-                            "endpoint": socket.gethostname(),
+                    payload_list.append({
+                            "endpoint": socket.gethostbyname(socket.gethostname()),
                             "metric": metric_list[i][j]+'.used',
                             "timestamp": int(time.time()),
                             "step": 60,
@@ -253,9 +254,9 @@ def NameNode(_node_name,_port = 0, name_list=[], metric_list=[]):
                             "counterType": "GAUGE",
                             "tags": "service="+node_name
                         })
-                    else:
+                else:
                         payload_list.append({
-                                "endpoint": socket.gethostname(),
+                                "endpoint": socket.gethostbyname(socket.gethostname()),
                                 "metric": metric_list[i][j],
                                 "timestamp": int(time.time()),
                                 "step": 60,
