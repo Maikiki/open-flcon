@@ -19,7 +19,7 @@ node_list = ['NameNode',
 
 port_list = ('50070', '50075', '60010', '60030', '8042', '8088')
 
-
+#爬取fsdataset
 
 fsdataset = ""
 temp = root_url + ':' + '50075' + '/jmx?' + 'qry=Hadoop:*'
@@ -67,7 +67,7 @@ NodeManager_name_list = ['java.lang:type=Memory',
 
 ResourceManager_name_list = ['java.lang:type=Memory',
                              'java.lang:type=OperatingSystem',
-                             'Hadoop:service=ResourceManager,name=RpcActivityForPort8025',
+                             'Hadoop:service=ResourceManager,name=RpcActivityForPort8032',
                              'Hadoop:service=ResourceManager,name=ClusterMetrics',
                              'Hadoop:service=ResourceManager,name=QueueMetrics,q0=root'
                              ]
@@ -206,6 +206,8 @@ ResourceManager_metric_list = [['HeapMemoryUsage',
                                ]
 
 
+
+
 # push接口数据的标准数据结构
 """
 push_data_dic = {
@@ -220,9 +222,25 @@ push_data_dic = {
 """
 
 payload_list = []
-def NameNode(_node_name,_port = 0, name_list=[], metric_list=[]):
+
+#payload生成
+def payload_generate(_metric = '', _data = '', _tags = ''):
+    push_data_dic = {
+        "endpoint": socket.gethostname(),
+        "metric": _metric,
+        "timestamp": int(time.time()),
+        "step": 60,
+        "value": _data,
+        "counterType": "GAUGE",
+        "tags": _tags
+    }
+    return push_data_dic
+
+def crawl_simple_metric(_node_name,_port, name_list=[], metric_list=[]):
     port = _port
     node_name = _node_name
+    capacity = ''
+    dfsused = ''
     for i in range(len(name_list)):
         for j in range(len(metric_list[i])):
             url = root_url + ':' + port + '/jmx?get=' + name_list[i] + '::' + metric_list[i][j]
@@ -236,41 +254,29 @@ def NameNode(_node_name,_port = 0, name_list=[], metric_list=[]):
                 pass
             else:
                 if metric_list[i][j] == 'HeapMemoryUsage' or metric_list[i][j] == 'NonHeapMemoryUsage':
-                    payload_list.append({
-                            "endpoint": socket.gethostbyname(socket.gethostname()),
-                            "metric": metric_list[i][j]+'.max',
-                            "timestamp": int(time.time()),
-                            "step": 60,
-                            "value": data['max'],
-                            "counterType": "GAUGE",
-                            "tags": "service="+node_name
-                        })
-                    payload_list.append({
-                            "endpoint": socket.gethostbyname(socket.gethostname()),
-                            "metric": metric_list[i][j]+'.used',
-                            "timestamp": int(time.time()),
-                            "step": 60,
-                            "value": data['used'],
-                            "counterType": "GAUGE",
-                            "tags": "service="+node_name
-                        })
+                    payload_list.append(payload_generate(metric_list[i][j]+'.max', data['max'],"service="+node_name))
+                    payload_list.append(payload_generate(metric_list[i][j]+'.max', data['max'],"service="+node_name))
+#modify FSState
+                elif metric_list[i][j] == 'FSState':
+                    payload_list.append(payload_generate(metric_list[i][j], 1, "service=" + node_name))
+#modify dfspercent
+                elif metric_list[i][j] =='DfsUsed':
+                    capacity = data
+                elif metric_list[i][j] =='Capacity':
+                    dfsused = data
+                    payload_list.append(payload_generate("DfsPercent","%.2f" % (float(dfsused)/float(capacity)), "service=" + node_name))
                 else:
-                        payload_list.append({
-                                "endpoint": socket.gethostbyname(socket.gethostname()),
-                                "metric": metric_list[i][j],
-                                "timestamp": int(time.time()),
-                                "step": 60,
-                                "value":data,
-                                "counterType": "GAUGE",
-                                "tags": "service="+node_name
-                                })
+                    payload_list.append(payload_generate(metric_list[i][j], data, "service=" + node_name))
 
 
 
-NameNode(node_list[0], port_list[0], NameNode_name_list, NameNode_metric_list)
-NameNode(node_list[1], port_list[1], DataNode_name_list, DataNode_metric_list)
-NameNode(node_list[2], port_list[2], HMaster_name_list, HMaster_metric_list)
-NameNode(node_list[3], port_list[3], HRegionServer_name_list, HRegionServer_metric_list)
-NameNode(node_list[4], port_list[4], NodeManager_name_list, NodeManager_metric_list)
-NameNode(node_list[5], port_list[5], ResourceManager_name_list, ResourceManager_metric_list)
-print json.dumps(payload_list)
+
+
+if __name__=="__main__":
+    crawl_simple_metric(node_list[0], port_list[0], NameNode_name_list, NameNode_metric_list)
+    crawl_simple_metric(node_list[1], port_list[1], DataNode_name_list, DataNode_metric_list)
+    crawl_simple_metric(node_list[2], port_list[2], HMaster_name_list, HMaster_metric_list)
+    crawl_simple_metric(node_list[3], port_list[3], HRegionServer_name_list, HRegionServer_metric_list)
+    crawl_simple_metric(node_list[4], port_list[4], NodeManager_name_list, NodeManager_metric_list)
+    crawl_simple_metric(node_list[5], port_list[5], ResourceManager_name_list, ResourceManager_metric_list)
+    print json.dumps(payload_list)

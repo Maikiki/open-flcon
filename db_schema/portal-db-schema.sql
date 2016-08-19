@@ -101,9 +101,25 @@ CREATE TABLE `strategy` (
   KEY `idx_strategy_tpl_id` (`tpl_id`)
 ) ENGINE =InnoDB;
 
+
 /*为模板创建策略*/
+ProcessCallTime99thpercentile
 LOCK TABLES `strategy` WRITE;
-INSERT INTO `strategy` VALUES(1,'RpcProcessingTimeAvgTime','service=DataNode',3,0,'all(#3)','>=','0','','','',1);
+INSERT INTO `strategy` VALUES
+(1,'HeapMemoryUsagePercent','service=DataNode',3,0,'all(#3)','>=','0.8','','','',1),
+(2,'HeapMemoryUsagePercent','service=NameNode',3,0,'all(#3)','>=','0.8','','','',1),
+(3,'HeapMemoryUsagePercent','service=HMaster',3,0,'all(#3)','>=','0.8','','','',1),
+(4,'HeapMemoryUsagePercent','service=NodeManager',3,0,'all(#3)','>=','0.8','','','',1),
+(5,'HeapMemoryUsagePercent','service=ResourceManager',3,0,'all(#3)','>=','0.8','','','',1),
+(6,'HeapMemoryUsagePercent','service=HRegionServer',3,0,'all(#3)','>=','0.8','','','',1),
+(7,'RpcProcessingTimeAvgTime','service=NameNode',3,0,'all(#3)','>=','5','','','',1),
+(8,'RpcProcessingTimeAvgTime','service=DataNode',3,0,'all(#3)','>=','5','','','',1),
+(9,'ProcessCallTime_99th_percentile','service=HMaster',3,0,'all(#3)','>=','5','','','',1),
+(10,'ProcessCallTime_99th_percentile','service=HRegionServer',3,0,'all(#3)','>=','500','','','',1),
+(11,'CapacityPercent','service=NameNode',3,0,'all(#3)','>=','0.8','','','',1),
+(12,'FSState','service=NameNode',3,0,'all(#3)','!=','1','','','',1),
+(13,'WriteBlockOpAvgTime','service=DataNode',3,0,'all(#3)','>=','5000','','','',1),
+(14,'DfsPercent','service=DataNode',3,0,'all(#3)','>=','0.8','','','',1);
 UNLOCK TABLES;
 
 DROP TABLE IF EXISTS expression;
@@ -224,7 +240,8 @@ CREATE TABLE `cluster` (
 
 LOCK TABLES `cluster` WRITE;
 /*!40000 ALTER TABLE `cluster` DISABLE KEYS */;
-INSERT INTO `cluster` VALUES (1,1,'$(cpu.busy)','$#','cluster','cpu.busy.avg.cluster','','GAUGE',60,'2016-08-04 09:55:15','root'),
+INSERT INTO `cluster` VALUES
+(1,1,'$(cpu.busy)','$#','cluster','cpu.busy.avg.cluster','','GAUGE',60,'2016-08-04 09:55:15','root'),
 (2,1,'$(mem.memused)','$#','cluster','mem.memused.avg.cluster','','GAUGE',60,'2016-08-04 09:55:45','root'),
 (3,1,'$(mem.memtotal)','$#','cluster','mem.memtotal.cluster','','GAUGE',60,'2016-08-04 09:56:25','root'),
 (4,1,'$(net.if.in.bytes)','$#','cluster','net.if.in.bytes.avg.cluster','','GAUGE',60,'2016-08-04 09:56:55','root'),
